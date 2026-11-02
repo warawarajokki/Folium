@@ -1,0 +1,57 @@
+name: Build Folium IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build Folium for iPhone
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Folium
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Select Xcode
+        run: |
+          xcodebuild -version
+
+      - name: Resolve Swift Packages
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project Folium.xcodeproj \
+            -scheme Folium
+
+      - name: Build Folium
+        run: |
+          xcodebuild build \
+            -project Folium.xcodeproj \
+            -scheme Folium \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+
+          cp -R build/Build/Products/Release-iphoneos/Folium.app Payload/
+
+          /usr/bin/ditto -c -k --sequesterRsrc --keepParent \
+            Payload Folium-2.2-unsigned.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folium-2.2-unsigned-IPA
+          path: Folium-2.2-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7
